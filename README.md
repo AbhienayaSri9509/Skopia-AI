@@ -58,9 +58,8 @@ Layout: `rules.py` is pure (no I/O; `now` is passed in), `service.py` wraps each
 `design/b3-supervisor-mobile.html`: the supervisor mobile approve screen plus the "waiting for second approver" and "expired" states, with design rationale. Open it in a browser, or host it with GitHub Pages for a link.
 
 
-## AI notes
+## notes
 
-I used Claude (via Antigravity / Google DeepMind) to scaffold the initial structure for this project. Here is what that means honestly:
 
 - **Scaffolded by AI:** The overall architecture (pure `rules.py` + `service.py` + thin `server.py`), the SQLite schema including the R6 partial unique index, the hash-chained audit log pattern, and the HTML/CSS for both the web UI and the B3 mobile design were generated in response to the brief.
 - **Reviewed and owned:** I read every line. I confirmed the rules (R1–R6) map correctly to the code and tests. I verified the two-person approval flow, the clock-based expiry logic (not timer-dependent), and the tamper-evident chain by running the tests and the smoke-test flows myself.
