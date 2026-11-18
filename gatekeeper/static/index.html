@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GateKeeper · Kestrel Valley Water Board</title>
+<style>
+  :root { --bg:#f3f6f6; --card:#fff; --ink:#122126; --mute:#566a70; --line:#d5dfe0;
+          --go:#0b7a55; --wait:#9a5b00; --stop:#b42318; --high:#b42318; --focus:#0b5fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0e1a1e; --card:#16262b; --ink:#e6f0ef; --mute:#93aaac; --line:#2a4249;
+            --go:#3ddc97; --wait:#f2b84b; --stop:#ff7a6e; --high:#ff7a6e; --focus:#7aa7ff; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header, main { max-width: 980px; margin: 0 auto; padding: 14px 16px; }
+  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
+  h1 { font-size:1.25rem; margin:0; } h2 { font-size:1.05rem; margin:24px 0 8px; }
+  .sub { color:var(--mute); font-size:.9rem; }
+  label { display:block; font-size:.85rem; color:var(--mute); margin-bottom:2px; }
+  select, input, textarea, button { font:inherit; color:inherit; }
+  select, input, textarea { width:100%; padding:9px 10px; background:var(--card); border:1px solid var(--line); border-radius:8px; }
+  button { padding:9px 14px; min-height:44px; border-radius:8px; border:1px solid var(--line); background:var(--card); cursor:pointer; }
+  button.go { background:var(--go); border-color:var(--go); color:#fff; font-weight:600; }
+  button.stop { color:var(--stop); border-color:var(--stop); }
+  :focus-visible { outline:3px solid var(--focus); outline-offset:2px; }
+  .grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; }
+  .asset { font-weight:700; } .id { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .badge { font-size:.8rem; font-weight:700; padding:2px 9px; border-radius:99px; border:1px solid currentColor; }
+  .risk-high { color:var(--high); } .active { color:var(--go); } .wait { color:var(--wait); } .dead { color:var(--mute); }
+  .actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .reason { margin:6px 0; overflow-wrap:anywhere; }
+  .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); max-width:92vw; padding:10px 16px; border-radius:10px;
+           background:var(--ink); color:var(--bg); font-weight:600; }
+  .toast[hidden] { display:none; }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; } td, th { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .table-wrap { overflow-x:auto; }
+  .denied td:nth-child(4) { color:var(--stop); font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>GateKeeper</h1><div class="sub">Kestrel Valley Water Board · vendor access</div></div>
+  <div style="min-width:220px"><label for="actor">Acting as (demo login)</label><select id="actor"></select></div>
+</header>
+<main>
+  <section id="formBox" hidden>
+    <h2>Request access</h2>
+    <form id="reqForm" class="card">
+      <div class="grid">
+        <div><label for="asset">Asset</label><select id="asset" required></select></div>
+        <div><label for="start">Start</label><input id="start" type="datetime-local" required></div>
+        <div><label for="minutes">Minutes (15–240)</label><input id="minutes" type="number" value="60" min="15" max="240" required></div>
+      </div>
+      <div style="margin-top:10px"><label for="reason">Reason</label><textarea id="reason" rows="2" maxlength="500" required></textarea></div>
+      <div class="actions"><button class="go" type="submit">Send request</button></div>
+    </form>
+  </section>
+  <h2>Requests</h2>
+  <div id="list"></div>
+  <h2>Audit log <span id="chain" class="badge"></span></h2>
+  <div class="card table-wrap"><table><thead><tr><th>Time (UTC)</th><th>Who</th><th>Action</th><th>Result</th><th>Why</th></tr></thead><tbody id="audit"></tbody></table></div>
+</main>
+<div id="toast" class="toast" role="status" hidden></div>
+<script>
+const $ = (s) => document.querySelector(s);
+// Build DOM with textContent only: reasons are user-supplied, so never inject HTML.
+const h = (tag, props = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) k === "class" ? (e.className = v) : k.startsWith("on") ? e.addEventListener(k.slice(2), v) : e.setAttribute(k, v);
+  for (const c of kids.flat()) e.append(c);
+  return e;
+};
+let state = null, skew = 0, actor = sessionStorage.getItem("actor") || "asha";
+const role = () => state.users.find((u) => u.id === actor)?.role;
+const hhmm = (iso) => iso.slice(11, 16);
+const LABEL = { awaiting_first: "Waiting for approval", awaiting_second: "Waiting for 2nd supervisor", scheduled: "Approved · not started",
+  active: "Active", rejected: "Rejected", revoked: "Revoked", expired: "Expired" };
+const CLASS = { awaiting_first: "wait", awaiting_second: "wait", scheduled: "wait", active: "active" };
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 4500); }
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: { "Content-Type": "application/json", "X-User": actor }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json();
+  if (j.ok === false) toast(j.reason);
+  else if (j.reason) toast(j.reason);
+  await refresh();
+  return j;
+}
+
+function card(r) {
+  const actions = [];
+  if (role() === "supervisor" && r.status === "pending") {
+    const mine = r.approved_by.some((a) => a.id === actor);
+    actions.push(h("button", { class: "go", onclick: () => api("POST", `/api/requests/${r.id}/approve`) }, mine ? "Approve (already done)" : "Approve"));
+    actions.push(h("button", { class: "stop", onclick: () => api("POST", `/api/requests/${r.id}/reject`) }, "Reject"));
+  }
+  if ((role() === "supervisor" || role() === "admin") && r.status === "approved" && r.phase !== "expired")
+    actions.push(h("button", { class: "stop", onclick: () => api("POST", `/api/requests/${r.id}/revoke`) }, "Revoke now"));
+  const approvals = r.approved_by.length ? `Approved by ${r.approved_by.map((a) => a.name).join(", ")} (${r.approved_by.length} of ${r.approvals_needed})`
+    : `${r.approvals_needed} approval${r.approvals_needed > 1 ? "s" : ""} needed`;
+  return h("div", { class: "card" },
+    h("div", { class: "row" },
+      h("div", {}, h("span", { class: "asset id" }, r.asset), " ", r.asset_name, " ",
+        h("span", { class: "badge " + (r.risk === "high" ? "risk-high" : "dead") }, r.risk + " risk")),
+      h("span", { class: "badge " + (CLASS[r.phase] || "dead") }, LABEL[r.phase])),
+    h("div", { class: "reason" }, `“${r.reason}”`),
+    h("div", { class: "sub" }, `${r.vendor_name} (${r.org}) · ${hhmm(r.start)}–${hhmm(r.end)} UTC · ${r.minutes} min · `, approvals,
+      " ", h("span", { "data-end": r.end, "data-start": r.start, "data-phase": r.phase })),
+    actions.length ? h("div", { class: "actions" }, actions) : "");
+}
+
+function tick() {
+  const now = Date.now() + skew;
+  document.querySelectorAll("[data-end]").forEach((el) => {
+    const p = el.dataset.phase, end = Date.parse(el.dataset.end), start = Date.parse(el.dataset.start);
+    const fmt = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`; };
+    el.textContent = p === "active" ? `· ends in ${fmt(end - now)}` : p === "scheduled" ? `· starts in ${fmt(start - now)}` : p.startsWith("awaiting") ? `· window ends in ${fmt(end - now)}` : "";
+  });
+}
+
+async function refresh() {
+  state = await (await fetch("/api/state")).json();
+  skew = Date.parse(state.now) - Date.now();
+  const sel = $("#actor");
+  if (!sel.options.length) {
+    state.users.forEach((u) => sel.append(h("option", { value: u.id }, `${u.name} · ${u.role}`)));
+    state.assets.forEach((a) => $("#asset").append(h("option", { value: a.id }, `${a.id} · ${a.name} (${a.risk})`)));
+    $("#start").value = new Date(Date.now() + 120000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+  sel.value = actor;
+  $("#formBox").hidden = role() !== "vendor";
+  const list = $("#list"); list.replaceChildren(...(state.requests.length ? state.requests.map(card) : [h("p", { class: "sub" }, "No requests yet. Switch to Karan or Meera to create one.")]));
+  const a = await (await fetch("/api/audit")).json();
+  $("#chain").textContent = a.chain.ok ? `chain verified · ${a.chain.entries} entries` : `TAMPERING at entry ${a.chain.broken_at}`;
+  $("#chain").className = "badge " + (a.chain.ok ? "active" : "risk-high");
+  $("#audit").replaceChildren(...a.entries.slice(0, 15).map((e) => h("tr", { class: e.outcome },
+    h("td", {}, e.ts.slice(5, 19).replace("T", " ")), h("td", {}, e.actor), h("td", {}, e.action + (e.request_id ? ` #${e.request_id}` : "")),
+    h("td", {}, e.outcome), h("td", {}, e.reason))));
+  tick();
+}
+
+$("#actor").addEventListener("change", (e) => { actor = e.target.value; sessionStorage.setItem("actor", actor); refresh(); });
+$("#reqForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const j = await api("POST", "/api/requests", { asset: $("#asset").value, reason: $("#reason").value,
+    start: new Date($("#start").value).toISOString(), minutes: Number($("#minutes").value) });
+  if (j.ok) $("#reason").value = "";
+});
+refresh(); setInterval(refresh, 3000); setInterval(tick, 1000);
+</script>
+</body>
+</html>

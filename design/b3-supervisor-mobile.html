@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GateKeeper · B3 · Supervisor mobile approval</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+  :root { --page:#e9eeee; --ink:#102025; --mute:#4a6168;
+          --bg:#0d1a1e; --panel:#15262b; --line:#2b464e; --text:#e8f1f0; --dim:#9bb2b4;
+          --go:#3ddc97; --wait:#f2b84b; --stop:#ff7a6e; --info:#8ab4ff; }
+  @media (prefers-color-scheme: dark) { :root { --page:#0a1114; --ink:#e6f0ef; --mute:#93aaac; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); font:16px/1.5 "Atkinson Hyperlegible", system-ui, sans-serif; }
+  .wrap { max-width:1180px; margin:0 auto; padding:28px 18px 56px; }
+  h1 { font-size:1.6rem; margin:0 0 6px; } h2 { font-size:1.1rem; margin:30px 0 8px; }
+  p { max-width:70ch; margin:6px 0; } .lead { color:var(--mute); }
+  .shots { display:flex; flex-wrap:wrap; gap:28px; margin-top:22px; align-items:flex-start; }
+  figure { margin:0; } figcaption { margin-top:10px; font-weight:700; } figcaption span { display:block; font-weight:400; color:var(--mute); max-width:330px; }
+  .phone { width:340px; min-height:690px; background:var(--bg); color:var(--text); border-radius:34px; border:8px solid #050b0d;
+           padding:16px 18px 22px; display:flex; flex-direction:column; gap:14px; box-shadow:0 12px 30px rgba(0,0,0,.25); }
+  .status { display:flex; justify-content:space-between; font-size:.8rem; color:var(--dim); }
+  .top { display:flex; align-items:center; gap:10px; } .back { font-size:1.4rem; color:var(--dim); } .top b { font-size:1rem; }
+  .hero { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; }
+  .hero.high { border-color:var(--stop); }
+  .asset { font:700 1.5rem/1.1 ui-monospace, Menlo, Consolas, monospace; }
+  .risk { display:inline-block; margin-top:8px; padding:3px 10px; border-radius:99px; font-weight:700; font-size:.85rem; border:2px solid var(--stop); color:var(--stop); }
+  dl { margin:14px 0 0; display:grid; grid-template-columns:auto 1fr; gap:6px 12px; font-size:.95rem; }
+  dt { color:var(--dim); } dd { margin:0; font-weight:700; text-align:right; }
+  .reason { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px 14px; }
+  .reason small, .small { color:var(--dim); font-size:.85rem; display:block; }
+  .note { border-left:4px solid var(--wait); padding:6px 10px; font-size:.9rem; background:rgba(242,184,75,.08); border-radius:0 8px 8px 0; }
+  .note.info { border-color:var(--info); background:rgba(138,180,255,.08); }
+  .grow { flex:1; }
+  .btn { width:100%; min-height:56px; border-radius:14px; border:2px solid var(--line); background:transparent; color:var(--text); font:700 1.05rem "Atkinson Hyperlegible", system-ui, sans-serif; }
+  .btn.go { background:var(--go); border-color:var(--go); color:#06231a; }
+  .btn.stop { border-color:var(--stop); color:var(--stop); }
+  .btn[disabled] { color:var(--dim); border-style:dashed; }
+  .hold { position:relative; overflow:hidden; } .hold::before { content:""; position:absolute; inset:0 55% 0 0; background:rgba(6,35,26,.22); }
+  .hold span { position:relative; }
+  .pair { display:grid; grid-template-columns:1fr 1.4fr; gap:10px; }
+  .steps { list-style:none; margin:14px 0 0; padding:0; display:grid; gap:12px; }
+  .steps li { display:flex; gap:12px; align-items:flex-start; }
+  .dot { flex:none; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-weight:700; font-size:.9rem; border:2px solid var(--line); color:var(--dim); }
+  .dot.done { background:var(--go); border-color:var(--go); color:#06231a; } .dot.now { border-color:var(--wait); color:var(--wait); border-style:dashed; }
+  .state { display:flex; align-items:center; gap:10px; font-weight:700; font-size:1.15rem; }
+  .state i { font-style:normal; display:grid; place-items:center; width:34px; height:34px; border-radius:50%; flex:none; }
+  .wait i { background:rgba(242,184,75,.18); color:var(--wait); } .gone i { background:rgba(155,178,180,.18); color:var(--dim); }
+  .timer { font:700 2rem/1 ui-monospace, Menlo, Consolas, monospace; color:var(--wait); margin-top:6px; }
+  ul.why { max-width:70ch; padding-left:20px; } ul.why li { margin:6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Supervisor approval on a phone</h1>
+  <p class="lead">GateKeeper · Part B3. Designed for Joel at 2 AM: one hand, tired eyes, a request on the chlorine system. Dark by default so the screen doesn’t dazzle a night-shift supervisor; text is high-contrast and nothing relies on colour alone.</p>
+
+  <div class="shots">
+    <figure>
+      <div class="phone" aria-label="Approve request screen, high risk">
+        <div class="status"><span>02:03</span><span>Joel · night</span></div>
+        <div class="top"><span class="back">‹</span><b>Access request</b></div>
+        <div class="hero high">
+          <div class="asset">PLC-07</div>
+          <div>Chlorine dosing</div>
+          <span class="risk">⚠ High risk · 2 supervisors needed</span>
+          <dl>
+            <dt>Vendor</dt><dd>Karan · Aquilon Pumps</dd>
+            <dt>Window</dt><dd>02:05 – 03:05 (60 min)</dd>
+            <dt>Approvals</dt><dd>0 of 2</dd>
+          </dl>
+        </div>
+        <div class="reason"><small>Reason from Karan</small>Calibrate dosing pump after seal replacement.</div>
+        <div class="note">Approving after 02:05 does not extend the window. It still ends at 03:05.</div>
+        <div class="grow"></div>
+        <button class="btn go hold"><span>Hold to approve</span></button>
+        <div class="pair"><button class="btn stop">Reject</button><button class="btn">Not now</button></div>
+      </div>
+      <figcaption>1 · Approve request<span>Asset and risk come first. High-risk approval is a deliberate hold, so a thumb slip at 2 AM can’t grant access.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone" aria-label="Waiting for second approver state">
+        <div class="status"><span>02:04</span><span>Joel · night</span></div>
+        <div class="top"><span class="back">‹</span><b>Access request</b></div>
+        <div class="hero high">
+          <div class="state wait"><i>◔</i>Waiting for a second supervisor</div>
+          <div class="asset" style="margin-top:12px">PLC-07</div>
+          <div>Chlorine dosing · Karan, 02:05 – 03:05</div>
+          <ol class="steps">
+            <li><span class="dot done">✓</span><div><b>You approved</b><span class="small">Joel · 02:04</span></div></li>
+            <li><span class="dot now">2</span><div><b>Needs a different supervisor</b><span class="small">Asha has been notified. You can’t give both approvals.</span></div></li>
+            <li><span class="dot">3</span><div><b>Access starts</b><span class="small">Only once both have approved</span></div></li>
+          </ol>
+          <div class="small" style="margin-top:14px">Request lapses if not approved by 03:05</div>
+          <div class="timer">00:59:42</div>
+        </div>
+        <div class="note info">No access has been granted yet. Karan sees “Waiting for second approver”.</div>
+        <div class="grow"></div>
+        <button class="btn" disabled>Waiting for Asha</button>
+        <button class="btn stop">Reject request</button>
+      </div>
+      <figcaption>2 · Waiting for second approver<span>Progress is a 3-step list, not a spinner. The disabled button names who it’s waiting on and the countdown shows when the request lapses.</span></figcaption>
+    </figure>
+
+    <figure>
+      <div class="phone" aria-label="Expired state">
+        <div class="status"><span>03:12</span><span>Joel · night</span></div>
+        <div class="top"><span class="back">‹</span><b>Access request</b></div>
+        <div class="hero">
+          <div class="state gone"><i>■</i>Expired · no access given</div>
+          <div class="asset" style="margin-top:12px">PLC-07</div>
+          <div>Chlorine dosing · Karan, 02:05 – 03:05</div>
+          <dl>
+            <dt>Ended</dt><dd>03:05 automatically</dd>
+            <dt>Approvals</dt><dd>1 of 2 (Joel)</dd>
+            <dt>Access used</dt><dd>None</dd>
+          </dl>
+        </div>
+        <div class="note info">Nothing to do. Karan must send a new request if the work still needs doing.</div>
+        <div class="grow"></div>
+        <button class="btn">View audit trail</button>
+        <button class="btn go">Back to requests</button>
+      </div>
+      <figcaption>3 · Expired<span>Says the outcome in the first line, confirms no access was given, and removes every approve action. The audit trail is one tap away.</span></figcaption>
+    </figure>
+  </div>
+
+  <h2>Why it looks like this</h2>
+  <ul class="why">
+    <li><b>What and how risky, before who and why.</b> Asset ID and a risk label (text plus a warning symbol, not just red) lead the screen, because that decides how carefully the supervisor reads the rest.</li>
+    <li><b>Friction matches risk.</b> Medium-risk assets use a normal Approve button. High-risk assets need a hold-to-approve. Reject is always one tap.</li>
+    <li><b>Honest about the rules.</b> “Approving late does not extend the window” and “you can’t give both approvals” surface the backend rules (R2, R3) before the supervisor hits an error.</li>
+    <li><b>One state, one message.</b> Each state opens with a plain-language headline and a single next step, and shows no approve action when none is possible.</li>
+    <li><b>Built for the setting.</b> 56 px touch targets, primary actions in the thumb zone, dark theme, Atkinson Hyperlegible for look-alike characters (0/O, 1/l), and an icon plus words for every state.</li>
+    <li><b>Not shown yet.</b> Push-notification entry point, the revoke flow for an active grant, and the medium-risk single-approval variant of screen 1.</li>
+  </ul>
+</div>
+</body>
+</html>
