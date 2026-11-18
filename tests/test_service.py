@@ -26,6 +26,9 @@ class Base(unittest.TestCase):
         self.clock = Clock(T0)
         self.gk = GateKeeper(":memory:", self.clock)
 
+    def tearDown(self):
+        self.gk.close()
+
     def ask(self, asset="PLC-03", who="karan", start_in=5, minutes=60, reason="Replace worn seal"):
         start = fmt_ts(self.clock.t + timedelta(minutes=start_in))
         return self.gk.request_access(who, asset, reason, start, minutes)

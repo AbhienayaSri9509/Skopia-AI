@@ -89,6 +89,16 @@ class GateKeeper:
             self.db.executemany("INSERT OR IGNORE INTO users VALUES (?,?,?,?)", USERS)
             self.db.executemany("INSERT OR IGNORE INTO assets VALUES (?,?,?)", ASSETS)
 
+    def close(self) -> None:
+        """Release the database connection. Called automatically as a context manager."""
+        self.db.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
     # ------------------------------------------------------------------ time
     def _now(self) -> datetime:
         return self.clock().astimezone(timezone.utc).replace(microsecond=0)
